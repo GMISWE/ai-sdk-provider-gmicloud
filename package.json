@@ -1,6 +1,6 @@
 {
   "name": "@gmicloud/ai-sdk-provider",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "GMI Cloud provider for the Vercel AI SDK.",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -26,7 +26,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gmicloud/ai-sdk-provider-gmicloud.git"
+    "url": "git+https://github.com/GMISWE/ai-sdk-provider-gmicloud.git"
   },
   "keywords": [
     "ai",
@@ -37,9 +37,9 @@
   "author": "GMI Cloud",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/gmicloud/ai-sdk-provider-gmicloud/issues"
+    "url": "https://github.com/GMISWE/ai-sdk-provider-gmicloud/issues"
   },
-  "homepage": "https://github.com/gmicloud/ai-sdk-provider-gmicloud#readme",
+  "homepage": "https://github.com/GMISWE/ai-sdk-provider-gmicloud#readme",
   "dependencies": {
     "@ai-sdk/provider": "^3.0.10",
     "@ai-sdk/provider-utils": "^4.0.26",
