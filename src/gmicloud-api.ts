@@ -72,7 +72,7 @@ export async function createApiCallError({
 }): Promise<APICallError> {
   const responseBody = await response.text();
   const data = parseMaybeJson(responseBody);
-  const message = getErrorMessage(data) ?? response.statusText;
+  const message = getErrorMessage(data, response) ?? response.statusText;
 
   return new APICallError({
     message,
@@ -94,8 +94,12 @@ function parseMaybeJson(text: string): unknown {
   }
 }
 
-function getErrorMessage(data: unknown): string | undefined {
+function getErrorMessage(data: unknown, response: Response): string | undefined {
   if (typeof data === 'string') {
+    if (/^\s*(?:<!DOCTYPE|<html)/i.test(data)) {
+      return `HTTP ${response.status} ${response.statusText} (non-JSON response from the gateway)`;
+    }
+
     return data.length > 0 ? data : undefined;
   }
 

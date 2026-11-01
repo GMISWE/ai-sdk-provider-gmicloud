@@ -138,6 +138,29 @@ const { text } = await generateText({
 
 Prefer standard AI SDK settings such as `temperature`, `maxOutputTokens`, `topP`, `stopSequences`, `tools`, and `toolChoice` whenever possible.
 
+For structured output, the provider sends the schema using `response_format.type: 'json_schema'` in both generation and streaming requests. It passes through the schema name and description, using `response` as the default name.
+
+Set `providerOptions.gmicloud.strictJsonSchema` to `true` to send `strict: true`:
+
+```ts
+import { generateObject } from 'ai';
+import { z } from 'zod';
+import { gmicloud } from '@gmicloud/ai-sdk-provider';
+
+const { object } = await generateObject({
+  model: gmicloud('zai-org/GLM-5.1-FP8'),
+  schema: z.object({ answer: z.string() }),
+  prompt: 'What is the capital of France?',
+  providerOptions: {
+    gmicloud: { strictJsonSchema: true },
+  },
+});
+```
+
+When `strictJsonSchema` is unset, the provider omits `strict`. OpenAI style backends treat this as false. Strict mode can reject schemas with optional fields on those backends.
+
+Plain JSON mode without a schema uses `json_object`. This can fail on some OpenAI served models unless the prompt mentions JSON. For example, `openai/gpt-6.1-sol` returned HTTP 502 in this case during verification on 1 November 2026. HTML gateway errors use a short HTTP status message; the full body remains available in `APICallError.responseBody`.
+
 ## Reasoning Models
 
 When GMI Cloud returns native `reasoning_content` in chat completion responses or stream deltas, this provider maps it to AI SDK V3 reasoning content. You can access it through AI SDK result content fields:
@@ -165,7 +188,7 @@ The table below lists the provider capabilities implemented by this package. Mod
 
 | Model | Image Input | Object Generation | Tool Usage | Tool Streaming |
 | --- | --- | --- | --- | --- |
-| `zai-org/GLM-5.1-FP8` | Not enabled | Supported through JSON mode | Supported | Supported |
+| `zai-org/GLM-5.1-FP8` | Not enabled | Structured output sent as a JSON schema | Supported | Supported |
 
 This provider does not currently implement embedding models, image generation models, or reranking models. Those should be added only after the corresponding GMI Cloud API contracts are verified.
 
