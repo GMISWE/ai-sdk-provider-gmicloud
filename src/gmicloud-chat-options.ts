@@ -7,5 +7,7 @@ import type { JSONObject } from '@ai-sdk/provider';
  * only for documented GMI Cloud request fields that are not standardized yet.
  */
 export type GmicloudLanguageModelOptions = {
+  /** Enable strict JSON schema enforcement for structured output. Omitted by default. */
+  strictJsonSchema?: boolean;
   extraBody?: JSONObject;
 };

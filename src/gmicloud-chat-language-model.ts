@@ -159,7 +159,7 @@ export class GmicloudChatLanguageModel implements LanguageModelV3 {
   } {
     const warnings: SharedV3Warning[] = [];
     const providerOptions = this.getProviderOptions(options);
-    const responseFormat = getResponseFormat(options, warnings);
+    const responseFormat = getResponseFormat(options, providerOptions?.strictJsonSchema);
     const tools = convertToGmicloudTools(options.tools);
 
     if (options.topK != null) {
@@ -203,6 +203,7 @@ export class GmicloudChatLanguageModel implements LanguageModelV3 {
     }
 
     return {
+      strictJsonSchema: providerOptions.strictJsonSchema,
       extraBody: toJSONObject(providerOptions.extraBody),
     };
   }
@@ -413,19 +414,24 @@ export class GmicloudChatLanguageModel implements LanguageModelV3 {
 
 function getResponseFormat(
   options: LanguageModelV3CallOptions,
-  warnings: SharedV3Warning[],
+  strictJsonSchema: boolean | undefined,
 ): GmicloudChatCompletionRequest['response_format'] {
   if (options.responseFormat == null || options.responseFormat.type === 'text') {
     return undefined;
   }
 
   if (options.responseFormat.schema != null) {
-    warnings.push({
-      type: 'compatibility',
-      feature: 'responseFormat.schema',
-      details:
-        'GMI Cloud OpenAI-compatible chat completions use JSON object mode; JSON schema is not sent.',
-    });
+    return {
+      type: 'json_schema',
+      json_schema: {
+        name: options.responseFormat.name ?? 'response',
+        ...(options.responseFormat.description != null
+          ? { description: options.responseFormat.description }
+          : {}),
+        schema: options.responseFormat.schema,
+        ...(strictJsonSchema != null ? { strict: strictJsonSchema } : {}),
+      },
+    };
   }
 
   return { type: 'json_object' };

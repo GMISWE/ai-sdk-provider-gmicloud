@@ -69,6 +69,93 @@ async function collectStream(stream: ReadableStream<LanguageModelV3StreamPart>) 
 }
 
 describe('GMI Cloud provider', () => {
+  const outputSchema = {
+    type: 'object' as const,
+    properties: { answer: { type: 'string' as const } },
+    required: ['answer'],
+    additionalProperties: false,
+  };
+
+  describe.each(['doGenerate', 'doStream'] as const)('%s response format', method => {
+    it.each<{
+      name: string;
+      responseFormat: LanguageModelV3CallOptions['responseFormat'];
+      strictJsonSchema?: boolean;
+      expected: unknown;
+    }>([
+      {
+        name: 'sends the schema with a default name and omits strict',
+        responseFormat: { type: 'json', schema: outputSchema },
+        expected: {
+          type: 'json_schema',
+          json_schema: { name: 'response', schema: outputSchema },
+        },
+      },
+      {
+        name: 'passes through the name and description',
+        responseFormat: {
+          type: 'json',
+          schema: outputSchema,
+          name: 'answer',
+          description: 'An answer to the question.',
+        },
+        expected: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'answer',
+            description: 'An answer to the question.',
+            schema: outputSchema,
+          },
+        },
+      },
+      ...[true, false].map(strict => ({
+        name: `passes through strictJsonSchema ${strict}`,
+        responseFormat: { type: 'json' as const, schema: outputSchema },
+        strictJsonSchema: strict,
+        expected: {
+          type: 'json_schema',
+          json_schema: { name: 'response', schema: outputSchema, strict },
+        },
+      })),
+      {
+        name: 'uses JSON object mode without a schema',
+        responseFormat: { type: 'json' },
+        expected: { type: 'json_object' },
+      },
+      {
+        name: 'omits the response format for text',
+        responseFormat: { type: 'text' },
+        expected: undefined,
+      },
+    ])('$name', async ({ responseFormat, strictJsonSchema, expected }) => {
+      let requestBody: Record<string, unknown> | undefined;
+      const fetchMock: typeof fetch = async (_input, init) => {
+        requestBody = JSON.parse(String(init?.body));
+        return method === 'doStream'
+          ? eventStreamResponse(['[DONE]'])
+          : jsonResponse({ choices: [{ message: { content: '{"answer":"Hello"}' } }] });
+      };
+      const result = await createModel(fetchMock)[method](baseOptions({
+        responseFormat,
+        ...(strictJsonSchema != null
+          ? { providerOptions: { gmicloud: { strictJsonSchema } } }
+          : {}),
+      }));
+
+      expect(requestBody?.response_format).toEqual(expected);
+      if (expected === undefined) {
+        expect(requestBody).not.toHaveProperty('response_format');
+      }
+      if ('stream' in result) {
+        const parts = await collectStream(result.stream);
+        expect(parts[0]).toEqual({ type: 'stream-start', warnings: [] });
+        expect(requestBody?.stream).toBe(true);
+      } else {
+        expect(result.warnings).toEqual([]);
+      }
+    });
+  });
+
   it('works through AI SDK generateText', async () => {
     const fetchMock: typeof fetch = async () =>
       jsonResponse({
@@ -474,6 +561,60 @@ describe('GMI Cloud provider', () => {
       message: 'Rate limit exceeded',
       statusCode: 429,
       isRetryable: true,
+    });
+  });
+
+  describe.each(['doGenerate', 'doStream'] as const)('%s gateway errors', method => {
+    it.each([
+      '<!DOCTYPE html><html><body>Bad Gateway</body></html>',
+      ' \n\t<hTmL><body>Bad Gateway</body></hTmL>',
+      ' \n<!doctype html><html>Bad Gateway</html>',
+    ])('keeps HTML in responseBody with a short error message: %j', async html => {
+      const fetchMock: typeof fetch = async () => new Response(html, {
+        status: 502,
+        statusText: 'Bad Gateway',
+        headers: { 'content-type': 'text/html' },
+      });
+      const error = await Promise.resolve(createModel(fetchMock)[method](baseOptions()))
+        .catch(error => error);
+
+      expect(error).toBeInstanceOf(APICallError);
+      expect(error).toMatchObject({
+        message: 'HTTP 502 Bad Gateway (non-JSON response from the gateway)',
+        statusCode: 502,
+        isRetryable: true,
+        responseBody: html,
+      });
+      expect(error.message).not.toMatch(/<html|<!DOCTYPE/i);
+    });
+
+    it.each([
+      { body: { error: { message: 'Upstream unavailable' } }, message: 'Upstream unavailable' },
+      { body: { message: 'Service unavailable' }, message: 'Service unavailable' },
+    ])('preserves JSON error messages: $message', async ({ body, message }) => {
+      const fetchMock: typeof fetch = async () => jsonResponse(body, {
+        status: 502,
+        statusText: 'Bad Gateway',
+      });
+
+      await expect(createModel(fetchMock)[method](baseOptions())).rejects.toMatchObject({
+        message,
+        statusCode: 502,
+        isRetryable: true,
+        responseBody: JSON.stringify(body),
+      });
+    });
+
+    it('preserves plain text error messages', async () => {
+      const fetchMock: typeof fetch = async () => new Response('Upstream unavailable', {
+        status: 502,
+        statusText: 'Bad Gateway',
+      });
+
+      await expect(createModel(fetchMock)[method](baseOptions())).rejects.toMatchObject({
+        message: 'Upstream unavailable',
+        responseBody: 'Upstream unavailable',
+      });
     });
   });
 

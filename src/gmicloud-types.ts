@@ -74,7 +74,18 @@ export type GmicloudChatCompletionRequest = {
   presence_penalty?: number;
   frequency_penalty?: number;
   seed?: number;
-  response_format?: { type: 'text' | 'json_object' };
+  response_format?:
+    | { type: 'text' }
+    | { type: 'json_object' }
+    | {
+        type: 'json_schema';
+        json_schema: {
+          name: string;
+          description?: string;
+          schema: JSONSchema7;
+          strict?: boolean;
+        };
+      };
   tools?: GmicloudTool[];
   tool_choice?: GmicloudToolChoice;
   [key: string]: unknown;
