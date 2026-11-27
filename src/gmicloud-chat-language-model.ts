@@ -241,6 +241,7 @@ export class GmicloudChatLanguageModel implements LanguageModelV3 {
     let reasoningEnded = false;
     let metadataSent = false;
     let finishSent = false;
+    let hasError = false;
     let pendingFinishReason: string | null | undefined;
     let lastUsage: GmicloudUsage | undefined;
 
@@ -305,7 +306,9 @@ export class GmicloudChatLanguageModel implements LanguageModelV3 {
       endTools(controller);
       controller.enqueue({
         type: 'finish',
-        finishReason: mapGmicloudFinishReason(rawFinishReason),
+        finishReason: hasError
+          ? { unified: 'error', raw: undefined }
+          : mapGmicloudFinishReason(rawFinishReason),
         usage: mapUsage(lastUsage),
       });
       finishSent = true;
@@ -331,6 +334,12 @@ export class GmicloudChatLanguageModel implements LanguageModelV3 {
 
         if (includeRawChunks) {
           controller.enqueue({ type: 'raw', rawValue: chunk });
+        }
+
+        if ('error' in chunk) {
+          hasError = true;
+          controller.enqueue({ type: 'error', error: chunk.error });
+          return;
         }
 
         if (!metadataSent) {
