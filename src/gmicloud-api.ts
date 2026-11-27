@@ -26,9 +26,9 @@ export async function postJsonToGmicloud<T>({
 }> {
   const response = await (config.fetch ?? globalThis.fetch)(url, {
     method: 'POST',
-    headers: cleanHeaders(combineHeaders(config.headers(), headers, {
+    headers: combineGmicloudHeaders(config.headers(), headers, {
       'Content-Type': 'application/json',
-    })),
+    }),
     body: JSON.stringify(body),
     signal: abortSignal,
   });
@@ -128,4 +128,14 @@ export function cleanHeaders(headers: Record<string, string | undefined>): Recor
   return Object.fromEntries(
     Object.entries(headers).filter((entry): entry is [string, string] => entry[1] != null),
   );
+}
+
+export function combineGmicloudHeaders(
+  ...headers: Array<Record<string, string | undefined> | undefined>
+): Record<string, string> {
+  return cleanHeaders(combineHeaders(...headers.map(header =>
+    header == null
+      ? undefined
+      : Object.fromEntries(Object.entries(header).map(([name, value]) => [name.toLowerCase(), value])),
+  )));
 }

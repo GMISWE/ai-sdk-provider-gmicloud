@@ -10,7 +10,6 @@ import {
   type SharedV3Warning,
 } from '@ai-sdk/provider';
 import {
-  combineHeaders,
   type EventSourceMessage,
   EventSourceParserStream,
   extractResponseHeaders,
@@ -19,7 +18,7 @@ import {
 
 import type { GmicloudLanguageModelOptions } from './gmicloud-chat-options.js';
 import {
-  cleanHeaders,
+  combineGmicloudHeaders,
   createApiCallError,
   postJsonToGmicloud,
   toJSONObject,
@@ -117,9 +116,9 @@ export class GmicloudChatLanguageModel implements LanguageModelV3 {
     const url = `${this.config.baseURL}/chat/completions`;
     const response = await (this.config.fetch ?? globalThis.fetch)(url, {
       method: 'POST',
-      headers: cleanHeaders(combineHeaders(this.config.headers(), options.headers, {
+      headers: combineGmicloudHeaders(this.config.headers(), options.headers, {
         'Content-Type': 'application/json',
-      })),
+      }),
       body: JSON.stringify(body),
       signal: options.abortSignal,
     });
