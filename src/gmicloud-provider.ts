@@ -8,6 +8,7 @@ import {
 import { generateId, loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
 
 import { GmicloudChatLanguageModel } from './gmicloud-chat-language-model.js';
+import { combineGmicloudHeaders } from './gmicloud-api.js';
 
 export interface GmicloudProviderSettings {
   /**
@@ -53,14 +54,13 @@ function unsupportedModel(modelId: string, modelType: NoSuchModelError['modelTyp
 export function createGmicloud(options: GmicloudProviderSettings = {}): GmicloudProvider {
   const baseURL = withoutTrailingSlash(options.baseURL) ?? 'https://api.gmi-serving.com/v1';
 
-  const getHeaders = () => ({
+  const getHeaders = () => combineGmicloudHeaders({
     Authorization: `Bearer ${loadApiKey({
       apiKey: options.apiKey,
       environmentVariableName: 'GMI_CLOUD_APIKEY',
       description: 'GMI Cloud',
     })}`,
-    ...options.headers,
-  });
+  }, options.headers);
 
   const config: GmicloudConfig = {
     provider: 'gmicloud',
